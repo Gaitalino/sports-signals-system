@@ -1,0 +1,8 @@
+requests
+beautifulsoup4
+lxml
+psycopg2-binary
+redis
+SQLAlchemy # Adicione esta linha
+pytz # Adicione esta linha
+python-dotenv # Recomendado para gerenciar .env em desenvolvimento

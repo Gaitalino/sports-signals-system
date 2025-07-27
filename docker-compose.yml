@@ -1,0 +1,84 @@
+services:
+  # Serviço de Banco de Dados PostgreSQL
+  db:
+    image: postgres:16-alpine # Usamos uma imagem oficial do PostgreSQL (versão 16, leve)
+    container_name: postgres_db # Nome amigável para o container
+    environment: # Variáveis de ambiente injetadas no container (do .env)
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432" # Mapeia a porta 5432 do seu host para a porta 5432 do container
+                    # Isso permite que você acesse o DB de ferramentas externas (DBeaver, pgAdmin)
+    volumes:
+      - postgres_data:/var/lib/postgresql/data # Persistência dos dados: cria um volume Docker para guardar os dados do DB
+                                                # Isso evita que seus dados sejam perdidos quando o container é reiniciado/removido
+    healthcheck: # Verifica se o serviço está pronto para receber conexões
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Serviço de Mensageria/Cache Redis
+  redis:
+    image: redis:7-alpine # Imagem oficial do Redis (versão 7, leve)
+    container_name: redis_cache
+    ports:
+      - "6379:6379" # Mapeia a porta 6379 do seu host para a porta 6379 do container
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"] # Verifica se o Redis está respondendo
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
+  # NOVO SERVIÇO: base_image_builder
+  # Este serviço existe APENAS para construir a imagem base 'sports-signals-system-base'.
+  # Ele não precisa de um 'command' ou 'restart' porque sua função é concluída na fase de build.
+  base_image_builder:
+    build:
+      context: . # O contexto é a raiz do seu projeto (onde está o docker-compose.yml e Dockerfile.base)
+      dockerfile: Dockerfile.base # Aponta para o Dockerfile que constrói a imagem base
+    image: sports-signals-system-base:latest # Nome da imagem base que será criada e usada pelos outros serviços
+    # Não precisa de depends_on, pois é o primeiro a ser construído para os que dependem dele.
+
+  # Serviço de Coleta de Dados (data-collector)
+  data-collector:
+    build:
+      context: . # Caminho para o diretório do Dockerfile e código-fonte
+      dockerfile: services/data-collector/Dockerfile # Nome do Dockerfile a ser usado
+    env_file: ./.env # Adicione esta linha (se live-monitor também usa .env)
+    container_name: data_collector_service
+    environment: # Variáveis de ambiente para o serviço
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      PYTHONUNBUFFERED: ${PYTHONUNBUFFERED}
+    depends_on: # Garante que o DB esteja saudável antes de iniciar este serviço
+      db:
+        condition: service_healthy
+  # Serviço de Monitoramento ao Vivo (live-monitor)
+  live-monitor:
+    build:
+      context: .
+      dockerfile: services/live-monitor/Dockerfile
+    env_file: ./.env # Adicione esta linha (se live-monitor também usa .env)
+    container_name: live_monitor_service
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_PORT: ${DB_PORT}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      PYTHONUNBUFFERED: ${PYTHONUNBUFFERED}
+    depends_on: # Garante que DB e Redis estejam saudáveis
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+# Volumes para persistência de dados
+volumes:
+  postgres_data: # Define o volume nomeado para os dados do PostgreSQL

@@ -1,0 +1,5 @@
+requests
+beautifulsoup4
+lxml
+psycopg2-binary
+redis # Este é adicionado especificamente para o live-monitor

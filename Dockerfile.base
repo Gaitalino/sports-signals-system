@@ -1,0 +1,11 @@
+# Dockerfile.base
+FROM python:3.11-slim-bookworm
+# Use 3.11 ou a versão mais recente e estável (este é um comentário de linha inteira)
+
+WORKDIR /app
+
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Não copie o código-fonte aqui (src/shared).
+# O código será copiado nos Dockerfiles específicos de cada serviço.

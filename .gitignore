@@ -1,0 +1,8 @@
+    # Python
+__pycache__/
+*.pyc
+.Python
+venv/
+.env # MUITO IMPORTANTE: Não envie suas credenciais para o GitHub!
+.pytest_cache/
+.mypy_cache/
